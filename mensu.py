@@ -13,30 +13,45 @@ filename = askopenfilename()
 img = cv2.imread(filename)
 
 # Fator de calibração
-FPX = 0.02
+FPX = 0.04
 
 # Converte para grayscale
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 # Aplica threshold adaptativo para segmentar úlcera
-thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 115, 1)
+thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 151, 3)
 
 # Converte para HSV
 hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
 # Threshold no canal H (Hue)
 lower = np.array([0, 50, 50])
-upper = np.array([15, 255, 255])
+upper = np.array([10, 255, 255])
 mask = cv2.inRange(hsv, lower, upper)
 
-# Operações morfológicas
-kernel = np.ones((3,3), np.uint8)
-mask = cv2.erode(mask, kernel, iterations=1)
-mask = cv2.dilate(mask, kernel, iterations=2)
+# Máscara por textura com Laplaciano
+#lap = cv2.Laplacian(gray, cv2.CV_64F)
+#lap = np.uint8(np.absolute(lap))
+#mask_lap = cv2.threshold(lap, 12, 255, cv2.THRESH_BINARY)[1]
+
+# Combina máscaras
+#mask = mask_lap & mask_lap
+
+# Operações morfológicas para limpar mascaras
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5))
+mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
 # Encontra contornos
 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 contours = [np.array(cnt).astype(np.int32) for cnt in contours]
+
+# Filtra por área para pegar contorno maior
+#ulcer_contour = max(contours, key=cv2.contourArea)
+
+# Calcula área, exibe resultado
+#area_px = cv2.contourArea(ulcer_contour)
+#area_cm = area_px * FPX * FPX
 
 # Desenha contornos
 contour_img = img.copy()
